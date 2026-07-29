@@ -105,7 +105,7 @@ const jsonLd = {
       offers: {
         "@type": "Offer",
         price: "0",
-        priceCurrency: "USD",
+        priceCurrency: "INR",
       },
       description: "Platform for creating and deploying custom personal AI experiences.",
     },

@@ -46,8 +46,8 @@ export default function PricingClient() {
       name: "Pro",
       id: "pro",
       tagline: "For creators, startups & growing businesses",
-      priceMonthly: 19,
-      priceAnnual: 15,
+      priceMonthly: 1499,
+      priceAnnual: 1199,
       badge: "Most Popular",
       isPopular: true,
       features: [
@@ -72,8 +72,8 @@ export default function PricingClient() {
       name: "Enterprise",
       id: "enterprise",
       tagline: "For organizations requiring maximum performance & control",
-      priceMonthly: 49,
-      priceAnnual: 39,
+      priceMonthly: 3999,
+      priceAnnual: 3199,
       badge: "Maximum Power",
       isPopular: false,
       features: [
@@ -269,7 +269,7 @@ export default function PricingClient() {
                   {/* Price Block */}
                   <div className="mb-8 flex items-baseline gap-2">
                     <span className="text-4xl md:text-5xl font-extrabold tracking-tight text-white">
-                      ${price}
+                      ₹{price.toLocaleString("en-IN")}
                     </span>
                     <span className="text-muted-foreground text-sm font-medium">
                       / month {isAnnual && price > 0 && <span className="text-xs text-blue-400 block">(billed annually)</span>}
