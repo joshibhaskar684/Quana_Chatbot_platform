@@ -3,18 +3,22 @@
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
-import { useState, useEffect } from "react";
-import { Bot, X, Send } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Bot, X, Send, Paperclip, FileText, Image as ImageIcon, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function AiModal({ openModal, setOpenModal }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const fileInputRef = useRef(null);
+
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      content: "👋 Hi, I am Vincular AI Assistant. Ask me anything about certifications & compliance.",
+      content: "👋 Hi, I am Vincular AI Assistant. Ask me anything about certifications & compliance or upload a document/image for analysis.",
     },
   ]);
 
@@ -32,18 +36,60 @@ export default function AiModal({ openModal, setOpenModal }) {
 
   const handleClose = () => setOpenModal(false);
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const userMessage = { role: "user", content: input };
+    setSelectedFile(file);
+
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (event) => setFilePreview(event.target?.result);
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  const removeSelectedFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim() && !selectedFile) return;
+
+    const fileAttachment = selectedFile ? {
+      name: selectedFile.name,
+      size: (selectedFile.size / 1024).toFixed(1) + " KB",
+      type: selectedFile.type,
+      preview: filePreview,
+    } : null;
+
+    const userMessage = {
+      role: "user",
+      content: input || `Uploaded file: ${selectedFile.name}`,
+      file: fileAttachment,
+    };
+
     setMessages((prev) => [...prev, userMessage]);
     
     const currentInput = input;
+    const currentFile = selectedFile;
+    
     setInput("");
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
 
     try {
       setLoading(true);
-      const res = await axios.post("/api/chat", { message: currentInput });
+      const res = await axios.post("/api/chat", {
+        message: currentFile ? `[Attachment: ${currentFile.name}] ${currentInput}` : currentInput,
+      });
       setMessages((prev) => [...prev, { role: "assistant", content: res.data.reply }]);
     } catch (error) {
       setMessages((prev) => [...prev, { role: "assistant", content: "⚠️ Failed to fetch response." }]);
@@ -112,6 +158,23 @@ export default function AiModal({ openModal, setOpenModal }) {
                         : "bg-background text-foreground rounded-bl-sm border border-border shadow-sm"
                     }`}
                   >
+                    {/* Attachment preview inside chat bubble */}
+                    {msg.file && (
+                      <div className="mb-3 p-2.5 rounded-xl bg-black/10 border border-white/10 flex items-center gap-3">
+                        {msg.file.preview ? (
+                          <img src={msg.file.preview} alt="Attachment" className="w-10 h-10 object-cover rounded-lg" />
+                        ) : msg.file.type.startsWith("image/") ? (
+                          <ImageIcon className="w-6 h-6 shrink-0 opacity-80" />
+                        ) : (
+                          <FileText className="w-6 h-6 shrink-0 opacity-80" />
+                        )}
+                        <div className="overflow-hidden text-xs">
+                          <p className="font-semibold truncate">{msg.file.name}</p>
+                          <p className="opacity-70">{msg.file.size}</p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className={`prose max-w-none prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border-border text-sm ${msg.role === "assistant" ? "prose-invert" : ""}`}>
                       <ReactMarkdown>
                         {msg.content}
@@ -135,8 +198,55 @@ export default function AiModal({ openModal, setOpenModal }) {
             </div>
 
             {/* Input Area */}
-            <div className="border-t border-border p-4 md:p-6 bg-background pb-6 md:pb-6">
-              <div className="flex items-center gap-2 max-w-4xl mx-auto">
+            <div className="border-t border-border p-4 md:p-6 bg-background pb-6 md:pb-6 flex flex-col gap-3">
+              
+              {/* Selected File Chip */}
+              {selectedFile && (
+                <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-muted/60 border border-border w-fit max-w-full">
+                  {filePreview ? (
+                    <img src={filePreview} alt="Preview" className="w-7 h-7 object-cover rounded-md shrink-0" />
+                  ) : selectedFile.type.startsWith("image/") ? (
+                    <ImageIcon size={18} className="text-blue-400 shrink-0" />
+                  ) : (
+                    <FileText size={18} className="text-purple-400 shrink-0" />
+                  )}
+                  <div className="truncate text-xs">
+                    <span className="font-medium text-foreground block truncate max-w-[200px]">{selectedFile.name}</span>
+                    <span className="text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                  </div>
+                  <button 
+                    onClick={removeSelectedFile}
+                    className="p-1 rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 max-w-4xl mx-auto w-full">
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept="image/*,.pdf,.doc,.docx,.txt,.json,.csv"
+                  className="hidden"
+                />
+
+                {/* Upload Paperclip Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading}
+                  className="h-12 w-12 md:h-14 md:w-14 rounded-xl shrink-0 border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  title="Upload Document or Image"
+                >
+                  <Paperclip size={20} />
+                </Button>
+
+                {/* Message Input */}
                 <Input
                   type="text"
                   value={input}
@@ -144,17 +254,19 @@ export default function AiModal({ openModal, setOpenModal }) {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") sendMessage();
                   }}
-                  placeholder="Ask about BIS, WPC, TEC..."
+                  placeholder="Ask about BIS, WPC, TEC or upload a file..."
                   className="flex-1 rounded-xl h-12 md:h-14 bg-muted/50 border-border focus-visible:ring-primary focus-visible:ring-1"
                   disabled={loading}
                 />
+
+                {/* Send Button */}
                 <Button
                   onClick={sendMessage}
-                  disabled={loading || !input.trim()}
+                  disabled={loading || (!input.trim() && !selectedFile)}
                   size="icon"
                   className="h-12 w-12 md:h-14 md:w-14 rounded-xl shrink-0 bg-primary text-primary-foreground shadow-md hover:scale-105 transition-transform"
                 >
-                  <Send size={18} className={input.trim() ? "ml-0.5" : ""} />
+                  <Send size={18} className={(input.trim() || selectedFile) ? "ml-0.5" : ""} />
                 </Button>
               </div>
             </div>
