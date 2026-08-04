@@ -21,7 +21,7 @@ export default function Navbar() {
 
   const navLinks = [
     { name: "Product", href: "/#product" },
-    { name: "Solutions", href: "/#solutions" },
+    { name: "Upcoming Solutions", href: "/upcoming-solutions" },
     { name: "Technology", href: "/#technology" },
     { name: "Developer", href: "/developer" },
   ];
